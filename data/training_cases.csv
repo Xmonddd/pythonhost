@@ -1,0 +1,54 @@
+symptoms,condition,details,treatment
+fever|cough|headache,Influenza (Flu),"Fever, sore throat, runny nose, headache, muscle aches, cough, tiredness","The flu usually goes away on its own in about one to two weeks with enough rest. Medicines like antihistamines, decongestants, and pain relievers can make you feel better, along with drinking lots of fluids and breathing in steam. "
+runny nose|sneezing|sore throat,common cold,"Symptoms of a common cold may include throat pain and sensitivity, sneezing, runny or stuffy nose, low-grade fever, headache, muscle aches, cough, and tiredness","A cold usually goes away on its own in a few days. Medicines like antihistamines, decongestants, or pain relievers can help you feel better, and so can drinking lots of fluids and breathing in steam."
+nausea,motion sickness,"The primary symptom of motion sickness is nausea. Other symptoms include dizziness, vomiting, sweating, and increased salivation.","A variety of medications, both over-the-counter and prescription, can prevent or ease motion sickness."
+chest pain|shortness of breath|sweating,cardiac issue,Possible cardiac ischemia or other serious heart condition.,Call emergency services; avoid exertion; urgent evaluation.
+,,,
+vomiting|diarrhea|abdominal cramps,food poisoning,Acute gastroenteritis from contaminated food.,"Oral rehydration, bland diet, consider antiemetic as advised. Seek care for bloody stools, severe dehydration, or persistent symptoms."
+thirst|dizziness|dry mouth,dehydration,Fluid deficit causing dizziness and dry mucosa.,Oral rehydration with electrolytes; IV fluids if severe; address underlying cause.
+burning urination|frequent urination|lower abdominal pain,uti,Likely urinary tract infection with dysuria and frequency.,"Hydration; phenazopyridine short-term for discomfort; seek medical assessment for antibiotics and red flags (fever, flank pain, pregnancy)."
+facial pain|nasal congestion|thick nasal discharge,sinusitis,Inflamed sinuses with facial pressure and purulent discharge.,"Saline irrigation, intranasal corticosteroid, analgesics. Seek care if severe pain, swelling, high fever, or symptoms >7–10 days."
+itchy eyes|sneezing|runny nose,allergic rhinitis,Allergic inflammation of nasal passages and eyes.,Allergen avoidance; oral antihistamine; intranasal steroid if persistent. Seek advice for severe or uncontrolled symptoms.
+ear pain|reduced hearing|fever,otitis media,Middle ear infection common after colds.,"Analgesics, rest, and medical evaluation for possible antibiotics depending on age/severity."
+sharp lower right abdominal ,appendicitis,Acute inflammation of the appendix with localized right lower quadrant pain.,Urgent surgical evaluation; avoid eating/drinking until assessed.
+fever,Hay Fever,"Hay fever symptoms include sneezing, congestion, runny nose, watery and bloodshot eyes, plugged up feeling in ears, itchy eyes and nose, tiredness, cough, temporary loss of taste and smell, and trouble sleeping","Cleaning sinuses with warm salt water ,
+Antihistamines and decongestants ,
+Cortisone and other nasal sprays, 
+Allergy shots or immunotherapy,"
+pink eye|eye discharge|itchy eyes,conjunctivitis,Inflammation of the conjunctiva causing redness and discharge.,"Hand hygiene, avoid touching eyes; lubricating drops; medical review for bacterial causes or severe pain/vision changes."
+back pain|pain radiating down leg|numbness,sciatica,Radiating leg pain due to nerve root irritation.,"Activity as tolerated, NSAIDs if appropriate, heat/ice. Seek urgent care for weakness, saddle anesthesia, or bladder/bowel symptoms."
+headache,Tension Headache,"Tension headaches cause dull pain and pressure, often feeling like a tight band around the head. They can also make you sensitive to light or noise, and may cause trouble sleeping or focusing.","Pain relievers 
+Muscle relaxants 
+Medication to help prevent headaches"
+sore throat,Strep Throat,"Red throat, white patches on throat, throat pain, trouble swallowing, swollen lymph glands, nausea, fever, chills, muscle aches, stomach ache, rash, headache",Strep throat should be treated with antibiotics to shorten the disease and prevent potentially serious complications. Antibiotics also make strep throat less contagious after 48 hours of treatment.
+dizziness,Labyrinthitis,"Dizziness, loss of balance, a sensation of spinning or moving when you are still, nausea, vomiting, headache, hearing loss, difficulty concentrating, and ringing in the ears (tinnitus)","Antihistamines ,
+Medications to decrease dizziness and nausea ,
+Antibiotics for a bacterial infection ,
+Corticosteroids ,
+Rest"
+Shortness Of Breath,"Asthma
+","Symptoms of asthma may include wheezing, chest tightness or pain, shortness of breath, and cough. Symptoms of a severe asthma attack may include blue lips, difficulty speaking, confusion, extreme difficulty breathing, sweating, and anxiety.","Long-term control medicines for asthma include inhaled steroids (sometimes combined with long-acting relievers), medicines that block allergy chemicals (like leukotriene modifiers), anticholinergics, and special treatments such as omalizumab (Xolair) or other immune system medicines."
+lower abdominal pain,Appendicitis,"Symptoms of appendicitis include abdominal pain that may occur suddenly near the belly button and move to the lower right, nausea, vomiting, loss of appetite, low-grade fever (after other symptoms), constipation, abdominal swelling, and inability to pass gas.",Appendicitis treatment includes: Possible surgery and antibiotics
+chest pain,Pericarditis,"Symptoms of acute pericarditis may include pain In the chest and sometimes shoulders that may worsen when you lie down and get better when you sit up and lean forward; dull ache or pressure in the chest; fever; weakness; palpitations; coughing; and trouble breathing. Symptoms of chronic pericarditis include tiredness; shortness of breath; coughing; swelling in the stomach and legs; and, less often, chest pain.","Rest ,
+Over-the-counter or prescription anti-inflammatory medication for pain and inflammation ,
+Corticosteroid medication to reduce inflammation ,
+Antibiotics or anti-fungal medication ,
+Narcotic pain medication ,
+Pericardiocentesis -- insertion of a needle or catheter in the chest wall to remove excess fluid in the pericardium ,
+Pericardiectomy -- surgery to remove the pericardium ,
+Treatment for underlying conditions such as kidney failure or cancer"
+upper abdominal pain,Gastritis,"Gastritis symptoms include upper abdominal pain and cramping; diarrhea (loose stools) with or without blood or mucus; low-grade fever; nausea and vomiting; loss of appetite; and black, tarry stools, which may be a sign of internal bleeding","Antacids ,
+Acid-suppressing medications (proton pump inhibitors and H2 blockers) ,
+Bland diet ,
+Avoiding alcohol and tobacco ,
+Avoiding medications that irritate the stomach, such as anti-inflammatory pain medications ,
+Antibiotics, if gastritis is caused by bacteria"
+back pain,Lumbar Strain and Lumbar Sprain,"Back pain that may extend into the buttocks, stiffness; difficulty sitting and standing upright, pain when touching the area, muscle spasms","Bed rest for a short time, no more than 3 days ,
+NSAIDs, such as ibuprofen, ketoprofen, and naproxen, for pain and swelling ,
+Ice packs ,
+Ultrasound ,
+Physical therapy, heat, and stretching exercises once you're feeling better ,
+Other medications, such as muscle relaxants"
+,,,
+,,,
+fatigue,Hypothyroidism,"Hypothyroid symptoms include weight gain, severe fatigue, weakness, slowed thinking, confusion, trouble concentrating, sensitivity to cold, depression, paranoia, hearing loss, dry skin, coarse hair, and hair loss.",People with hypothyroidism need to take thyroid hormone replacement for the rest of their lives.
