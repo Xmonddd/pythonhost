@@ -1,16 +1,18 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Dict, Tuple, Optional
-import os
 
 from .schemas import AnalyzeRequest, AnalyzeResponse
 from .normalization import normalize_list
-from .red_flags import evaluate_red_flags
 from .ml_model import symptom_model
+from .red_flags import evaluate_red_flags
 
-app = FastAPI(title="AiHealth API", version="0.3.0")
+app = FastAPI(
+    title="Symptom Checker API",
+    description="Basic demo API with simple ML model. Not for medical use.",
+    version="0.2.0"
+)
 
-# CORS (Firebase + local)
+# Updated CORS configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -24,79 +26,78 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Severity advice
-DEFAULT_ADVICE: Dict[str, str] = {
-    "low": "Maintain hydration, rest, and reassess if new symptoms appear.",
-    "medium": "Rest, hydrate, consider OTC relief, and consult a clinician if symptoms persist.",
-    "high": "Urgent concern. Seek immediate medical attention.",
+CONDITION_SEVERITY = {
+    "flu": "medium",
+    "meningitis": "high",
+    "migraine": "medium",
+    "asthma": "medium",
+    "cardiac_issue": "high",
+    "food_poisoning": "medium",
+    "dehydration": "medium"
 }
-SEVERITY_RANK = {"low": 0, "medium": 1, "high": 2}
 
-def ensure_model_loaded() -> None:
-    try:
-        symptom_model.load()
-    except FileNotFoundError:
-        # Train on first boot if artifacts are missing
-        from train_model import main as train
-        train()  # creates model.joblib + meta.joblib in working dir
-        symptom_model.load()
+DEFAULT_ADVICE = {
+    "low": "Rest, hydrate, and monitor for 24–48 hours.",
+    "medium": "Monitor and consult a healthcare professional if symptoms persist or worsen.",
+    "high": "Seek urgent medical attention immediately."
+}
 
 @app.on_event("startup")
-def _startup():
-    ensure_model_loaded()
+def load_model():
+    try:
+        symptom_model.load()
+    except FileNotFoundError as exc:
+        raise RuntimeError("Model artifacts not found. Train the model first.") from exc
+    except Exception as exc:
+        raise RuntimeError("Unable to load model artifacts.") from exc
 
-@app.get("/")
-def root():
-    return {"message": "AiHealth API running", "model_loaded": symptom_model.loaded}
-
-@app.get("/health")
-def health():
-    return {"status": "ok", "model_loaded": symptom_model.loaded}
-
-@app.get("/symptoms")
-def list_symptoms():
-    ensure_model_loaded()
-    return {"symptoms": symptom_model.symptoms_space}
+# Optional helper for GET in browser
+@app.get("/analyze")
+def analyze_usage():
+    return {
+        "message": "Use POST /analyze with JSON body.",
+        "example": { "symptoms": ["fever", "cough"], "age": 18, "gender": "male" }
+    }
 
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(req: AnalyzeRequest):
     if not req.symptoms:
         raise HTTPException(status_code=400, detail="At least one symptom is required.")
-    ensure_model_loaded()
 
-    # Normalize inputs
-    sym_norm: List[str] = normalize_list(req.symptoms)
-    if not sym_norm:
+    symptoms_norm = normalize_list(req.symptoms)
+    if not symptoms_norm:
         raise HTTPException(status_code=400, detail="Supplied symptoms are not recognized.")
 
-    # Rule-based red flags
-    red_flags, red_sev = evaluate_red_flags(sym_norm)
+    red_flags, red_flag_severity = evaluate_red_flags(symptoms_norm)
 
-    # ML predictions
     try:
-        preds: List[Tuple[str, float]] = symptom_model.predict(sym_norm, top_k=3, prob_threshold=0.15)
-    except RuntimeError as e:
-        raise HTTPException(status_code=503, detail=str(e))
+        predictions = symptom_model.predict(symptoms_norm)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
 
-    insights = [c for c, _ in preds]
-    probabilities = {c: float(p) for c, p in preds} or None
+    insights = [c for c, _ in predictions]
+    probabilities = {c: float(p) for c, p in predictions} or None
 
-    # Compute severity (combine rules + simple mapping by top prob)
-    computed = "low"
-    if red_sev and SEVERITY_RANK[red_sev] > SEVERITY_RANK[computed]:
-        computed = red_sev
-    if preds:
-        top_prob = preds[0][1]
-        if top_prob >= 0.6:
-            computed = max(computed, "medium", key=lambda s: SEVERITY_RANK[s])
+    severity_rank = {"low": 0, "medium": 1, "high": 2}
+    computed_severity = "low"
+    for cond in insights:
+        sev = CONDITION_SEVERITY.get(cond)
+        if sev and severity_rank[sev] > severity_rank[computed_severity]:
+            computed_severity = sev
+    if red_flag_severity and severity_rank[red_flag_severity] > severity_rank[computed_severity]:
+        computed_severity = red_flag_severity
 
-    advice = DEFAULT_ADVICE[computed]
+    advice = DEFAULT_ADVICE[computed_severity]
 
-    top_condition: Optional[str] = insights[0] if insights else None
-    top_probability: float = probabilities[top_condition] if top_condition and probabilities else 0.0
-    accuracy_level = "High" if top_probability >= 0.5 else ("Moderate" if top_probability >= 0.2 else "Low")
+    top_condition = insights[0] if insights else None
+    top_probability = probabilities[top_condition] if top_condition and probabilities else 0.0
+    if top_probability >= 0.5:
+        accuracy_level = "High"
+    elif top_probability >= 0.2:
+        accuracy_level = "Moderate"
+    else:
+        accuracy_level = "Low"
 
-    # Details/treatment from training metadata
     condition_details = treatment = None
     if top_condition:
         info = symptom_model.get_condition_info(top_condition)
@@ -104,7 +105,7 @@ def analyze(req: AnalyzeRequest):
         treatment = info.get("treatment") or None
 
     return AnalyzeResponse(
-        severity=computed,
+        severity=computed_severity,
         insights=insights,
         advice=advice,
         redFlags=red_flags,
@@ -115,6 +116,14 @@ def analyze(req: AnalyzeRequest):
         accuracyLevel=accuracy_level,
     )
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=int(os.getenv("PORT", "8080")))
+@app.get("/health")
+def health():
+    return {"status": "ok", "model_loaded": symptom_model.loaded}
+
+@app.get("/version")
+def version():
+    return {"app": "Symptom Checker API", "version": "0.2.0"}
+
+@app.get("/")
+def root():
+    return {"message": "Symptom Checker API running. Not for diagnostic use."}
