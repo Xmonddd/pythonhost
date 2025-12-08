@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 
 try:
-    df = pd.read_csv("training_cases.csv")
+    df = pd.read_csv("C:\Users\Administrator\Desktop\AiHealth\be\data\training_cases.csv")
     print("======================================")
     print("CSV LOADED:", len(df), "rows")
     print("FIRST ROW:", df.iloc[0].to_dict())
