@@ -1,6 +1,19 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
+# 🔥 ADD CSV DEBUG LOADER (HERE)
+import pandas as pd
+
+try:
+    df = pd.read_csv("training_cases.csv")
+    print("======================================")
+    print("CSV LOADED:", len(df), "rows")
+    print("FIRST ROW:", df.iloc[0].to_dict())
+    print("======================================")
+except Exception as e:
+    print("ERROR LOADING CSV:", e)
+# 🔥 END CSV DEBUG LOADER
+
 from .schemas import AnalyzeRequest, AnalyzeResponse
 from .normalization import normalize_list
 from .ml_model import symptom_model
