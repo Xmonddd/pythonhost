@@ -45,14 +45,14 @@ DEFAULT_ADVICE = {
 }
 
 def create_redis_client() -> redis.Redis | None:
-    url = os.getenv("REDIS_URL")
+    url = os.getenv("redis://default:oaFpmaEqIKDTZEMlRsRLPuJYghemlmSp@redis.railway.internal:6379")
     try:
         if url:
             # Works with redis:// and rediss:// from Railway
             return redis.Redis.from_url(url, decode_responses=True)
-        host = os.getenv("REDIS_HOST", "localhost")
-        port = int(os.getenv("REDIS_PORT", "6379"))
-        password = os.getenv("REDIS_PASSWORD") or None
+        host = os.getenv("redis.railway.internal", "localhost")
+        port = int(os.getenv("6379", "6379"))
+        password = os.getenv("oaFpmaEqIKDTZEMlRsRLPuJYghemlmSp") or None
         db = int(os.getenv("REDIS_DB", "0"))
         return redis.Redis(host=host, port=port, password=password, db=db, decode_responses=True)
     except Exception:
