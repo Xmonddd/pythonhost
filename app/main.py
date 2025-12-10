@@ -1,5 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+import os, json
+import redis
 
 from .schemas import AnalyzeRequest, AnalyzeResponse
 from .normalization import normalize_list
@@ -42,6 +44,20 @@ DEFAULT_ADVICE = {
     "high": "Seek urgent medical attention immediately."
 }
 
+def create_redis_client() -> redis.Redis | None:
+    url = os.getenv("REDIS_URL")
+    try:
+        if url:
+            # Works with redis:// and rediss:// from Railway
+            return redis.Redis.from_url(url, decode_responses=True)
+        host = os.getenv("REDIS_HOST", "localhost")
+        port = int(os.getenv("REDIS_PORT", "6379"))
+        password = os.getenv("REDIS_PASSWORD") or None
+        db = int(os.getenv("REDIS_DB", "0"))
+        return redis.Redis(host=host, port=port, password=password, db=db, decode_responses=True)
+    except Exception:
+        return None
+
 @app.on_event("startup")
 def load_model():
     try:
@@ -50,6 +66,14 @@ def load_model():
         raise RuntimeError("Model artifacts not found. Train the model first.") from exc
     except Exception as exc:
         raise RuntimeError("Unable to load model artifacts.") from exc
+
+    # Initialize Redis
+    app.state.redis = create_redis_client()
+    if app.state.redis:
+        try:
+            app.state.redis.ping()
+        except Exception:
+            app.state.redis = None
 
 # Optional helper for GET in browser
 @app.get("/analyze")
@@ -67,6 +91,18 @@ def analyze(req: AnalyzeRequest):
     symptoms_norm = normalize_list(req.symptoms)
     if not symptoms_norm:
         raise HTTPException(status_code=400, detail="Supplied symptoms are not recognized.")
+
+    # Cache lookup
+    r: redis.Redis | None = getattr(app.state, "redis", None)
+    cache_key = f"analyze:{'|'.join(sorted(symptoms_norm))}:{req.age}:{req.gender}"
+    if r:
+        try:
+            cached = r.get(cache_key)
+            if cached:
+                payload = json.loads(cached)
+                return AnalyzeResponse(**payload)
+        except Exception:
+            pass
 
     red_flags, red_flag_severity = evaluate_red_flags(symptoms_norm)
 
@@ -104,7 +140,7 @@ def analyze(req: AnalyzeRequest):
         condition_details = info.get("details") or None
         treatment = info.get("treatment") or None
 
-    return AnalyzeResponse(
+    response = AnalyzeResponse(
         severity=computed_severity,
         insights=insights,
         advice=advice,
@@ -116,9 +152,25 @@ def analyze(req: AnalyzeRequest):
         accuracyLevel=accuracy_level,
     )
 
+    # Cache store
+    if r:
+        try:
+            r.setex(cache_key, 3600, json.dumps(response.dict()))
+        except Exception:
+            pass
+
+    return response
+
 @app.get("/health")
 def health():
-    return {"status": "ok", "model_loaded": symptom_model.loaded}
+    redis_connected = False
+    r = getattr(app.state, "redis", None)
+    if r:
+        try:
+            redis_connected = bool(r.ping())
+        except Exception:
+            redis_connected = False
+    return {"status": "ok", "model_loaded": symptom_model.loaded, "redis": {"connected": redis_connected}}
 
 @app.get("/version")
 def version():
