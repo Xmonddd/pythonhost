@@ -99,6 +99,7 @@ def analyze(req: AnalyzeRequest):
         try:
             cached = r.get(cache_key)
             if cached:
+                print(f"[cache] hit: {cache_key}")
                 payload = json.loads(cached)
                 return AnalyzeResponse(**payload)
         except Exception:
@@ -155,6 +156,7 @@ def analyze(req: AnalyzeRequest):
     # Cache store
     if r:
         try:
+            print(f"[cache] store: {cache_key}")
             r.setex(cache_key, 3600, json.dumps(response.dict()))
         except Exception:
             pass
