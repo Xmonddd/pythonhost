@@ -45,7 +45,7 @@ DEFAULT_ADVICE = {
 }
 
 def create_redis_client() -> redis.Redis | None:
-    url = os.getenv("redis://default:oaFpmaEqIKDTZEMlRsRLPuJYghemlmSp@redis.railway.internal:6379L")
+    url = os.getenv("redis://default:oaFpmaEqIKDTZEMlRsRLPuJYghemlmSp@redis.railway.internal:6379")
     # Mask password when logging
     masked = None
     if url:
