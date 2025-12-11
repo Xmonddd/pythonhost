@@ -45,17 +45,35 @@ DEFAULT_ADVICE = {
 }
 
 def create_redis_client() -> redis.Redis | None:
-    url = os.getenv("redis://default:oaFpmaEqIKDTZEMlRsRLPuJYghemlmSp@redis.railway.internal:6379")
+    url = os.getenv("redis://default:oaFpmaEqIKDTZEMlRsRLPuJYghemlmSp@redis.railway.internal:6379L")
+    # Mask password when logging
+    masked = None
+    if url:
+        try:
+            from urllib.parse import urlparse
+            p = urlparse(url)
+            masked = f"{p.scheme}://{p.hostname}:{p.port}/{p.path.lstrip('/')}"
+        except Exception:
+            masked = url
+    print(f"[redis] REDIS_URL={masked}")
     try:
         if url:
-            # Works with redis:// and rediss:// from Railway
-            return redis.Redis.from_url(url, decode_responses=True)
+            # Try normal connect; if rediss fails, relax cert verification
+            try:
+                return redis.Redis.from_url(url, decode_responses=True)
+            except Exception as e:
+                if url.startswith("rediss://"):
+                    print(f"[redis] TLS connect failed: {e}; retrying without cert verification")
+                    return redis.Redis.from_url(url, decode_responses=True, ssl_cert_reqs="none")
+                raise
+        # Fallback if REDIS_URL not set
         host = os.getenv("redis.railway.internal", "localhost")
         port = int(os.getenv("6379", "6379"))
         password = os.getenv("oaFpmaEqIKDTZEMlRsRLPuJYghemlmSp") or None
         db = int(os.getenv("REDIS_DB", "0"))
         return redis.Redis(host=host, port=port, password=password, db=db, decode_responses=True)
-    except Exception:
+    except Exception as e:
+        print(f"[redis] client init error: {e}")
         return None
 
 @app.on_event("startup")
@@ -72,7 +90,9 @@ def load_model():
     if app.state.redis:
         try:
             app.state.redis.ping()
-        except Exception:
+            print("[redis] connected")
+        except Exception as e:
+            print(f"[redis] ping failed: {e}")
             app.state.redis = None
 
 # Optional helper for GET in browser
@@ -181,3 +201,16 @@ def version():
 @app.get("/")
 def root():
     return {"message": "Symptom Checker API running. Not for diagnostic use."}
+
+@app.get("/redis")
+def redis_status():
+    url = os.getenv("redis://default:oaFpmaEqIKDTZEMlRsRLPuJYghemlmSp@redis.railway.internal:6379")
+    r = getattr(app.state, "redis", None)
+    connected = False
+    err = None
+    if r:
+        try:
+            connected = bool(r.ping())
+        except Exception as e:
+            err = str(e)
+    return {"url": url, "connected": connected, "error": err}
