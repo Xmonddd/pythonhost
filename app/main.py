@@ -1,9 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-# Add missing imports
 import os
 import ssl
 import redis
+import json
 
 from .schemas import AnalyzeRequest, AnalyzeResponse
 from .normalization import normalize_list
@@ -47,29 +47,27 @@ DEFAULT_ADVICE = {
 }
 
 def create_redis_client() -> redis.Redis | None:
-    url = os.getenv("redis://default:oaFpmaEqIKDTZEMlRsRLPuJYghemlmSp@redis.railway.internal:6379")
-    # Mask password when logging
+    # READ from env var, not a hardcoded literal
+    url = os.getenv("REDIS_URL")
     masked = None
     if url:
         try:
-            # mask password in logs
             masked = url
             if "@" in url and "://" in url:
                 scheme, rest = url.split("://", 1)
                 if "@" in rest:
-                    creds, hostp = rest.split("@", 1)
+                    _, hostp = rest.split("@", 1)
                     masked = f"{scheme}://***@{hostp}"
         except Exception:
             masked = "<invalid>"
     print(f"[redis] REDIS_URL={masked}")
     try:
         if url:
-            # Support rediss:// (TLS) and redis://
             use_ssl = url.startswith("rediss://")
             ssl_opts = {"ssl": True, "ssl_cert_reqs": ssl.CERT_NONE} if use_ssl else {}
             return redis.from_url(url, decode_responses=True, **ssl_opts)
 
-        # Fallback if REDIS_URL not set (defaults)
+        # Fallback when REDIS_URL is not set
         host = os.getenv("redis.railway.internal", "localhost")
         port = int(os.getenv("6379", "6379"))
         password = os.getenv("oaFpmaEqIKDTZEMlRsRLPuJYghemlmSp") or None
@@ -83,11 +81,10 @@ def create_redis_client() -> redis.Redis | None:
 def load_model():
     try:
         symptom_model.load()
-        print("[model] loaded")
     except FileNotFoundError as exc:
-        print(f"[model] not found: {exc}")
+        raise RuntimeError("Model artifacts not found. Train the model first.") from exc
     except Exception as exc:
-        print(f"[model] load error: {exc}")
+        raise RuntimeError("Unable to load model artifacts.") from exc
 
     # Initialize Redis
     app.state.redis = create_redis_client()
@@ -193,7 +190,7 @@ def health():
     r = getattr(app.state, "redis", None)
     if r:
         try:
-            redis_connected = r.ping()
+            redis_connected = bool(r.ping())
         except Exception:
             redis_connected = False
     return {"status": "ok", "model_loaded": symptom_model.loaded, "redis": {"connected": redis_connected}}
@@ -220,6 +217,6 @@ def redis_status():
     masked = None
     if url and "@" in url and "://" in url:
         scheme, rest = url.split("://", 1)
-        creds, hostp = rest.split("@", 1)
+        _, hostp = rest.split("@", 1)
         masked = f"{scheme}://***@{hostp}"
     return {"connected": connected, "url": masked, "error": err}
