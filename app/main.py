@@ -16,7 +16,7 @@ app = FastAPI(
     version="0.2.0"
 )
 
-# Updated CORS configuration
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -46,47 +46,51 @@ DEFAULT_ADVICE = {
     "high": "Seek urgent medical attention immediately."
 }
 
+# --------------------------------------------------
+# FIXED REDIS CLIENT
+# --------------------------------------------------
 def create_redis_client() -> redis.Redis | None:
-    # READ from env var, not a hardcoded literal
-    url = os.getenv("REDIS_URL")
+    url = os.getenv("REDIS_URL")  # <-- Correct env var name
+
     masked = None
     if url:
         try:
-            masked = url
             if "@" in url and "://" in url:
                 scheme, rest = url.split("://", 1)
-                if "@" in rest:
-                    _, hostp = rest.split("@", 1)
-                    masked = f"{scheme}://***@{hostp}"
+                _, hostp = rest.split("@", 1)
+                masked = f"{scheme}://***@{hostp}"
+            else:
+                masked = "<invalid>"
         except Exception:
             masked = "<invalid>"
+
     print(f"[redis] REDIS_URL={masked}")
+
     try:
         if url:
             use_ssl = url.startswith("rediss://")
             ssl_opts = {"ssl": True, "ssl_cert_reqs": ssl.CERT_NONE} if use_ssl else {}
             return redis.from_url(url, decode_responses=True, **ssl_opts)
 
-        # Fallback when REDIS_URL is not set
-        host = os.getenv("redis.railway.internal", "localhost")
-        port = int(os.getenv("6379", "6379"))
-        password = os.getenv("oaFpmaEqIKDTZEMlRsRLPuJYghemlmSp") or None
-        db = int(os.getenv("REDIS_DB", "0"))
-        return redis.Redis(host=host, port=port, password=password, db=db, decode_responses=True)
-    except Exception as e:
-        print(f"[redis] client init error: {e}")
+        print("[redis] No REDIS_URL provided — Redis disabled.")
         return None
+
+    except Exception as e:
+        print(f"[redis] init error: {e}")
+        return None
+
 
 @app.on_event("startup")
 def load_model():
+    # Load model
     try:
         symptom_model.load()
     except FileNotFoundError as exc:
-        raise RuntimeError("Model artifacts not found. Train the model first.") from exc
+        raise RuntimeError("Model artifacts not found.") from exc
     except Exception as exc:
         raise RuntimeError("Unable to load model artifacts.") from exc
 
-    # Initialize Redis
+    # Init Redis
     app.state.redis = create_redis_client()
     if app.state.redis:
         try:
@@ -96,13 +100,18 @@ def load_model():
             print(f"[redis] ping failed: {e}")
             app.state.redis = None
 
-# Optional helper for GET in browser
+
+# --------------------------------------------------
+# ENDPOINTS
+# --------------------------------------------------
+
 @app.get("/analyze")
 def analyze_usage():
     return {
         "message": "Use POST /analyze with JSON body.",
-        "example": { "symptoms": ["fever", "cough"], "age": 18, "gender": "male" }
+        "example": {"symptoms": ["fever", "cough"], "age": 18, "gender": "male"}
     }
+
 
 @app.post("/analyze", response_model=AnalyzeResponse)
 def analyze(req: AnalyzeRequest):
@@ -116,6 +125,7 @@ def analyze(req: AnalyzeRequest):
     # Cache lookup
     r: redis.Redis | None = getattr(app.state, "redis", None)
     cache_key = f"analyze:{'|'.join(sorted(symptoms_norm))}:{req.age}:{req.gender}"
+
     if r:
         try:
             cached = r.get(cache_key)
@@ -138,10 +148,12 @@ def analyze(req: AnalyzeRequest):
 
     severity_rank = {"low": 0, "medium": 1, "high": 2}
     computed_severity = "low"
+
     for cond in insights:
         sev = CONDITION_SEVERITY.get(cond)
         if sev and severity_rank[sev] > severity_rank[computed_severity]:
             computed_severity = sev
+
     if red_flag_severity and severity_rank[red_flag_severity] > severity_rank[computed_severity]:
         computed_severity = red_flag_severity
 
@@ -149,6 +161,7 @@ def analyze(req: AnalyzeRequest):
 
     top_condition = insights[0] if insights else None
     top_probability = probabilities[top_condition] if top_condition and probabilities else 0.0
+
     if top_probability >= 0.5:
         accuracy_level = "High"
     elif top_probability >= 0.2:
@@ -157,6 +170,7 @@ def analyze(req: AnalyzeRequest):
         accuracy_level = "Low"
 
     condition_details = treatment = None
+
     if top_condition:
         info = symptom_model.get_condition_info(top_condition)
         condition_details = info.get("details") or None
@@ -171,10 +185,10 @@ def analyze(req: AnalyzeRequest):
         topCondition=top_condition,
         conditionDetails=condition_details,
         treatment=treatment,
-        accuracyLevel=accuracy_level,
+        accuracyLevel=accuracy_level
     )
 
-    # Cache store
+    # Cache set
     if r:
         try:
             print(f"[cache] store: {cache_key}")
@@ -183,6 +197,7 @@ def analyze(req: AnalyzeRequest):
             pass
 
     return response
+
 
 @app.get("/health")
 def health():
@@ -193,30 +208,49 @@ def health():
             redis_connected = bool(r.ping())
         except Exception:
             redis_connected = False
-    return {"status": "ok", "model_loaded": symptom_model.loaded, "redis": {"connected": redis_connected}}
+
+    return {
+        "status": "ok",
+        "model_loaded": symptom_model.loaded,
+        "redis": {"connected": redis_connected}
+    }
+
 
 @app.get("/version")
 def version():
     return {"app": "Symptom Checker API", "version": "0.2.0"}
 
-@app.get("/")
-def root():
-    return {"message": "Symptom Checker API running. Not for diagnostic use."}
 
+# --------------------------------------------------
+# FIXED REDIS DEBUG ROUTE
+# --------------------------------------------------
 @app.get("/redis")
 def redis_status():
-    url = os.getenv("redis://default:oaFpmaEqIKDTZEMlRsRLPuJYghemlmSp@redis.railway.internal:6379")
+    url = os.getenv("REDIS_URL")
     r = getattr(app.state, "redis", None)
+
     connected = False
     err = None
+
     if r:
         try:
             connected = r.ping()
         except Exception as e:
             err = str(e)
+
     masked = None
     if url and "@" in url and "://" in url:
         scheme, rest = url.split("://", 1)
         _, hostp = rest.split("@", 1)
         masked = f"{scheme}://***@{hostp}"
-    return {"connected": connected, "url": masked, "error": err}
+
+    return {
+        "connected": connected,
+        "url": masked,
+        "error": err
+    }
+
+
+@app.get("/")
+def root():
+    return {"message": "Symptom Checker API running. Not for diagnostic use."}
