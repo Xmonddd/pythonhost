@@ -1,6 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-import os, json
+# Add missing imports
+import os
+import ssl
 import redis
 
 from .schemas import AnalyzeRequest, AnalyzeResponse
@@ -50,23 +52,24 @@ def create_redis_client() -> redis.Redis | None:
     masked = None
     if url:
         try:
-            from urllib.parse import urlparse
-            p = urlparse(url)
-            masked = f"{p.scheme}://{p.hostname}:{p.port}/{p.path.lstrip('/')}"
-        except Exception:
+            # mask password in logs
             masked = url
+            if "@" in url and "://" in url:
+                scheme, rest = url.split("://", 1)
+                if "@" in rest:
+                    creds, hostp = rest.split("@", 1)
+                    masked = f"{scheme}://***@{hostp}"
+        except Exception:
+            masked = "<invalid>"
     print(f"[redis] REDIS_URL={masked}")
     try:
         if url:
-            # Try normal connect; if rediss fails, relax cert verification
-            try:
-                return redis.Redis.from_url(url, decode_responses=True)
-            except Exception as e:
-                if url.startswith("rediss://"):
-                    print(f"[redis] TLS connect failed: {e}; retrying without cert verification")
-                    return redis.Redis.from_url(url, decode_responses=True, ssl_cert_reqs="none")
-                raise
-        # Fallback if REDIS_URL not set
+            # Support rediss:// (TLS) and redis://
+            use_ssl = url.startswith("rediss://")
+            ssl_opts = {"ssl": True, "ssl_cert_reqs": ssl.CERT_NONE} if use_ssl else {}
+            return redis.from_url(url, decode_responses=True, **ssl_opts)
+
+        # Fallback if REDIS_URL not set (defaults)
         host = os.getenv("redis.railway.internal", "localhost")
         port = int(os.getenv("6379", "6379"))
         password = os.getenv("oaFpmaEqIKDTZEMlRsRLPuJYghemlmSp") or None
@@ -80,10 +83,11 @@ def create_redis_client() -> redis.Redis | None:
 def load_model():
     try:
         symptom_model.load()
+        print("[model] loaded")
     except FileNotFoundError as exc:
-        raise RuntimeError("Model artifacts not found. Train the model first.") from exc
+        print(f"[model] not found: {exc}")
     except Exception as exc:
-        raise RuntimeError("Unable to load model artifacts.") from exc
+        print(f"[model] load error: {exc}")
 
     # Initialize Redis
     app.state.redis = create_redis_client()
@@ -189,7 +193,7 @@ def health():
     r = getattr(app.state, "redis", None)
     if r:
         try:
-            redis_connected = bool(r.ping())
+            redis_connected = r.ping()
         except Exception:
             redis_connected = False
     return {"status": "ok", "model_loaded": symptom_model.loaded, "redis": {"connected": redis_connected}}
@@ -210,7 +214,12 @@ def redis_status():
     err = None
     if r:
         try:
-            connected = bool(r.ping())
+            connected = r.ping()
         except Exception as e:
             err = str(e)
-    return {"url": url, "connected": connected, "error": err}
+    masked = None
+    if url and "@" in url and "://" in url:
+        scheme, rest = url.split("://", 1)
+        creds, hostp = rest.split("@", 1)
+        masked = f"{scheme}://***@{hostp}"
+    return {"connected": connected, "url": masked, "error": err}
